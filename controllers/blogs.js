@@ -3,6 +3,8 @@ const blogsRouter = express.Router()
 const Blog = require('../models/blog')
 const User = require('../models/user')
 const jwt = require('jsonwebtoken')
+const userExtractor = require('../utils/userExtractor')
+
 
 blogsRouter.get('/', async (request, response) => {
   const blogs = await Blog.find({}).populate('user', {
@@ -45,10 +47,22 @@ blogsRouter.post('/', async (request, response) => {
   response.status(201).json(populatedBlog)
 })
 
-blogsRouter.delete('/:id', async (request, response) => {
+blogsRouter.delete('/:id', userExtractor, async (request, response) => {
+  const user = request.user
+  const blog = await Blog.findById(request.params.id)
+
+  if (!blog) {
+    return response.status(404).json({ error: 'blog not found' })
+  }
+
+  if (blog.user.toString() !== user._id.toString()) {
+    return response.status(403).json({ error: 'unauthorized: only creator can delete blog' })
+  }
+
   await Blog.findByIdAndDelete(request.params.id)
   response.status(204).end()
 })
+
 
 blogsRouter.put('/:id', async (request, response) => {
   const { likes } = request.body
